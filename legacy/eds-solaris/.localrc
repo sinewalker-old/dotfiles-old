@@ -1,0 +1,44 @@
+# bash login script of Scot Wilson
+# Created 14/08/2007
+
+# LEVEL is used to destinguish between login shell
+# windows (root windows) and other shells, because
+# a different prompt is used in each case.  This
+# must be set before invoking .bashrc!
+export LEVEL=0
+
+PATH=$HOME/bin:$PATH:/usr/local/bin:/usr/local/sbin:/sbin:/usr/sbin:/usr/openwin/bin:/usr/ucb
+CDPATH=":$HOME:$HOME/man:$HOME/bin"
+
+# User specific environment and startup programs:
+/usr/bin/mesg n	# Don't allow anyone to interrupt my session
+umask 027	# Create files with group, other permissions turned off.
+ulimit -c 0     # Prevent a crashed program from creating a "core" file.
+
+
+UMASK=022
+
+# The following changes the sort order to ACSII order, which does
+#not ignore case or punctuation characters (such as leading periods).
+LC_COLLATE=C
+
+EDITOR=vi
+VISUAL=$EDITOR
+FCEDIT=$EDITOR
+PAGER=less
+ENV=$HOME/.bashrc
+HISTSIZE=1000
+HISTFILESIZE=1000
+LESS='-fXemPm?f%f .?lbLine %lb?L of %L..:$' # Set options for less command
+MAILCHECK=1
+MAILPATH=/var/spool/mail/$USER'?Hey!  You have new mail!'
+MAIL=/usr/mail/${LOGNAME:?}
+PS1='\[\033[01;32m\]\u@\h\[\033[00m\] \w \$ '
+TERM=xterm
+TMPDIR=/tmp
+
+export CDPATH ENV HISTSIZE HISTFILESIZE LC_COLLATE LESS MAILCHECK MAILPATH
+export PS1 MAIL EDITOR PAGER TMPDIR VISUAL FCEDIT
+
+
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:~/lib

@@ -1,0 +1,22 @@
+IMAPAccount squiz
+Host mail-staff.squiz.net
+User mlockhart
+PassCmd "cat ~/keys/password.imap"
+UseIMAPS yes
+RequireSSl yes
+UseTLSv1.2 yes
+
+IMAPStore squiz-remote
+Account squiz
+
+MaildirStore squiz-local
+Path ~/Maildir
+Inbox ~/Maildir/INBOX
+
+Channel squiz
+Master :squiz-remote:
+Slave :squiz-local:
+Create Slave
+Expunge Both
+Sync All
+SyncState *

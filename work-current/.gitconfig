@@ -1,0 +1,7 @@
+[http]
+	sslVerify = true
+[user]
+	name = Mike Lockhart
+	email = mlockhart@squiz.net
+[push]
+	default = simple

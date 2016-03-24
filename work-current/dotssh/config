@@ -1,0 +1,11 @@
+############################## -*- mode:conf -*-
+# Mike's custom SSH settings
+
+#Use control master, except for versioning systems
+Host github.com bitbucket.org localhost
+	ControlPath none
+
+Host *
+	ControlMaster auto
+	ControlPath ~/.ssh/master-$r@%h:%p
+	ControlPersist 300

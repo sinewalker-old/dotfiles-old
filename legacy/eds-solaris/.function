@@ -1,0 +1,650 @@
+#!/bin/bash
+###############################################################################
+#
+#  File:       .function
+#  Language:   Bash script
+#  Time-stamp: <2011-06-02 11:45:15 tzbblg>
+#  Platform:   Unix workstation
+#  OS:         Unix / Linux / Cygwin / Mac OS X / Solaris
+#  Authors:    Michael Lockhart [MJL]
+#
+#  Rights:     Use this however you like, just don't sue me
+#
+#  PURPOSE:    Michael's custom shell functions
+#
+#    Source this file from your shell's rc script, e.g.:
+#       test -s ~/.function && . ~/.function || true
+#
+#  HISTORY
+#
+# MJL20070509 - Created (from .bashrc)
+#             - made orthoganal to .alias (does not rely upon aliases)
+# MJL20080717 - Proxy switch (for programs that honour HTTP_PROXY, anyway)
+# MJL20080903 - Fix bug in emacs functions (alternate editor was wrong)
+# MJL20080904 - Editor selection functions
+# MJL20080905 - Add args, fixvorbis and findcmd
+#             - Fix $HOME expansion
+# MJL20080908 - Use bash [[ compound expression for tests
+# MJL20080909 - Aparently function foo() is incorrect...
+#             - Monster prompt as a function
+# MJL20080917 - Add lscolours 
+# MJL20080918 - proxy(): additional known env vars are also set
+# MJL20080930 - More word-splitting bug fixes
+# MJL20090219 - Removed EDS/Windows specific functions, moved to .localrc
+# MJL20110602 - snooze(): wait and sleep forever
+#
+
+
+
+function settitle { 
+    # Set the window title on an X-term
+    echo -n "^[]2;$@^G^[]1;$@^G"; 
+}
+
+function spawn {
+    # Make multiple copies of a file
+    #
+    # params:  $1 = filespec to spawn (note: if using wildcards, quote this to 
+    #               avoid wildcard expansion by parent shell...)
+    #          $2 = number of copies to make
+    #          $3 = (optional) filename suffix to strip from spawned copy names
+    #
+    # example 1 - create 42 spawned copies of README
+    #      spawn.sh README 42
+    #
+    # example 2 - create 3 copies of img*.jpg
+    #      spawn.sh 'img*.jgp' 3
+    #
+    # example 3 - create 5 spawned copies of each of *.xml, and make
+    #             sure spawns are called *-n.xml, not *.xml-n.xml
+    #      spawn.sh '*.xml' 5 .xml
+    #
+    # Bugs:
+    #  o doesn't check parameters
+    #    work-around:  get the parameters right... YOU'VE BEEN WARNED!
+    #  o must run from directory containing files to spawn; the following 
+    #    won't work:    spawn.sh 'somedir/*.gif' 3 .gif
+    #    work-around:  cp somedir/*.gif .; spawn.sh '*.gif' 3 .gif
+
+    for x in ./$1; do
+	for (( n=./$2+1; n=n-1; )); do
+            cp "$x" $(basename "$x" "$3")-"$n$3" \
+		&& echo made $(basename "$x" "$3")-"$n$3"
+	done
+    done
+}
+
+function zless {
+    # View Unix compressed (.Z) files one screen full at a time
+    # (only works well with compressed text files -- not tarballs).
+    zcat "$@" | $PAGER 
+}
+
+function pkzless {
+    # View pk-zip compressed (.zip) files
+    pkunzip -s "$@" | $PAGER
+}
+
+function gzless {
+    # View GNU-zip compressed (.gz) files
+    gunzip -c "$@" | $PAGER
+}
+
+function bzless {
+    # View bzip2-compressed (.bz2) files
+    if [[ -z $1 ]]; then
+        echo "Usage: $FUNCNAME filename [filename ...]"
+        return 1
+    else
+        cat "$@" | bunzip2 | $PAGER
+    fi
+}
+
+function nfind {
+    # Find all files matching given name, filtering out the stupid errors
+    if [[ -z $1 ]]; then
+        echo "Usage: $FUNCNAME filename"
+        return 1
+    else
+        find / -name "$1" 2> /dev/null | grep -v denied
+    fi
+}
+
+function xfind {
+    # from OSXFAQ Daily Unix Tricks
+    # http://www.osxfaq.com/tips/unix-tricks/week40/monday.ws
+    #
+    # Sometimes one needs to apply the same command to many files, and using 
+    # 'find' is a good approach. You can use the following script to make
+    # this simpler.
+
+    if [[ -z $1 ]]; then 
+	echo "Usage: $FUNCNAME filespec [command to -exec]"
+	echo " e.g.: $FUNCNAME \"*.html\" less"
+	return 1
+    fi
+    
+    if [[ -z $2 ]]; then
+	find . -name "$1"
+    else
+	find . -name "$1" -exec "$2" {} \;
+    fi
+}
+
+function backup {
+    # Backup and change mode of file before editing
+    # (as required by NBR change process)
+    # This copies the specified file to a new file name with date/time
+    # and makes sure that the file is not executable (in case it was a script)
+    #
+    # MJL20070509 - Now handles multiple files
+
+    if [[ -z $1 ]] ; then
+        printf "File Backup function.\nERROR:  no file specified\n\n"
+	printf "Usage:\n"
+	printf "$FUNCNAME <filename> [<filename> ...]\n"
+	printf "where <filename> is the file(s) to back up.\n"
+        return 1
+    else
+	THEDATE=$(date +"%Y%m%d")
+        THETIME=$(date +"%H%M%S")
+        for n ; do
+            NEWNAME="$n"."$THEDATE"."$THETIME"
+            cp -- "$n" "$NEWNAME"
+            chmod 440 "$NEWNAME"
+        done
+    fi
+    unset THEDATE THETIME NEWNAME
+}
+
+
+function dos2unix() {
+    # Converts a text file with DOS line-breaks (\r\n) into Unix (\n)
+    # This function exists mainly to aid text file conversion on a non-GNU Unix
+    # host, since GNU's dos2unix is quite capable, whereas Solaris' version is
+    # suboptimal and still other Unicen do not have a dos2unix utility...
+
+
+    case $(uname) in
+        SunOS)
+            # Wrapper for the Solaris dos2unix program.  It converts multiple
+            # files and assumes source file was encoded in DOS codepage 437 
+            # (USA). 
+
+            for n ; do
+                command dos2unix -437 "$n" > "$n".nix \
+                    && { mv "$n".nix "$n" && echo "$n: done." ; } \
+                    || echo "$n: error!"
+            done
+            ;;            
+        *)  # if there is an executable called dos2unix on the path, then just
+            # pass along the function parameters and hope for the best (this 
+            # is the default action in Linux/Cygwin)...
+
+            if type -f dos2unix &> /dev/null ; then
+                command dos2unix $@
+	    else
+                # no luck, try sed instead
+
+		if [[ -z $1 ]]; then
+		    echo "Usage: $FUNCNAME filename [filename ...]"
+		    return 1
+		fi
+
+                echo "WARNING: Could not find dos2unix executable."
+                echo "Resorting to sed... (does not handle ^Z at EOF)"
+                for n ; do
+                    sed 's/\r\n/\n/g' < "$n" > "$n".nix \
+                        && { mv "$n".nix "$n" && echo "$n: done." ; } \
+                        || echo "$n: error!"
+                done
+            fi
+            ;;
+    esac
+}
+
+function unix2dos {
+    # Converts a text file with Unix line-breaks (\n) into DOS (\r\n)
+    # This function exists mainly to aid text file conversion on a non-GNU Unix
+    # host, since GNU's unix2dos is quite capable, whereas Solaris' version is
+    # suboptimal...
+
+    case $(uname) in
+        SunOS)
+            # Wrapper for the Solaris unix2dos program.  It converts
+            # multiple files and encodes to DOS codepage 437 (USA).
+            
+            for n ; do
+                command unix2dos -437 "$n" > "$n".dos \
+                    && { mv "$n".dos "$n" && echo "$n: done." ; } \
+                    || echo "$n: error"
+            done
+            ;;
+        *)
+            # if there is an executable called unix2dos on the path, then just
+            # pass along the function parameters and hope for the best (this 
+            # is the default action in Linux/Cygwin)...
+
+            if type -f unix2dos &> /dev/null ; then
+                command unix2dos $@
+            else
+                 # no luck, try sed instead (I found this trick at
+                 # http://sed.sourceforge.net/sed1line.txt )
+
+		if [[ -z $1 ]]; then
+		    echo "Usage: $FUNCNAME filename [filename ...]"
+		    return 1
+		fi
+
+                echo "WARNING: Could not find unix2dos executable."
+                echo "Resorting to sed... (does not handle ^Z at EOF)"
+                for n in "$@" ; do
+                    sed 's/$'"/$(echo \\\r)/" < $n > $n.dos \
+                        && { mv "$n".dos "$n" && echo "$n: done." ; } \
+                        || echo "$n: error!"
+                done
+            fi
+            ;;
+    esac
+}
+
+function mac2unix {
+    # from OSXFAQ Daily Unix Tricks
+    # http://www.osxfaq.com/tips/unix-tricks/week40/tuesday.ws
+    #
+    # Here is a script to change a file with traditional Mac end of line 
+    # characters to have Unix end of line characters.
+    #
+    # made into a shell function, then allowed it to convert multiple files
+    
+    if [[ -z $1 ]]; then
+        echo "Usage: $FUNCNAME filename [filename ...]"
+        return 1
+    fi
+    for n ; do
+        tr \\r \\n < "$n" > "$n".nix \
+            && { mv "$n".nix "$n" && echo "$n: done." ; } \
+            || echo "$n: error!"
+    done
+}
+
+function unix2mac {
+    # reciprocal of mac2unix, based on that function published at
+    # http://www.osxfaq.com/tips/unix-tricks/week40/tuesday.ws
+    #
+    # Here is a script to change a file with Unix end of line 
+    # characters to have traditional Mac end of line characters.
+    
+    if [[ -z $1 ]]; then
+        echo "Usage: $FUNCNAME filename [filename ...]"
+        return 1
+    fi
+    for n ; do
+        tr \\n \\r < "$n" > "$n".mac \
+            && { mv "$n".mac "$n" && echo "$n: done." ; } \
+            || echo "$n: error!"
+    done
+}
+
+function mac2dos {
+    # This achieves conversion between Macintosh and DOS line endings
+    # by using above shell functions to convert via Unix line ending.
+    # This is not very efficient, but then this is more for completeness
+    # as I've never actually had to do it for a lot of files.
+    # I've also never actually run this function from a Mac bash prompt
+    
+    if [[ -z $1 ]]; then
+        echo "Usage: $FUNCNAME filename [filename ...]"
+        return 1
+    fi
+    mac2unix $@ && unix2dos $@
+}
+
+function dos2mac {
+    # This is the reciprocal of mac2dos, converting line endings via Unix.
+    # As with that function, this is inefficient, but I don't really care.
+
+    if [[ -z $1 ]]; then
+        echo "Usage: $FUNCNAME filename [filename ...]"
+        return 1
+    fi
+    dos2unix $@ && unix2mac $@
+}
+
+function emacs {
+    # Starts editing file in existing emacs session (or starts an
+    # emacs if it isn't already running).
+
+    emacsclient --no-wait --alternate-editor=/usr/bin/emacs $@
+}
+
+function emacs22 {
+    # Starts editing file in existing emacs session (or starts emacs22
+    # if no emacs is runing already).
+
+    emacsclient --no-wait --alternate-editor=/usr/local/bin/emacs22 $@
+}
+
+function use-editor {
+    # Select an editor to use as the sub-editor and also give it the
+    # 'editor' alias. I have routines in my .bashrc to select an
+    # apropriate editor depending on the terminal type or operating
+    # system, but sometimes it's still wrong, or I have a special
+    # need...
+
+    if [[ -z $1 ]]; then
+	echo "Usage: $FUNCNAME <editor>"
+	echo " where <editor> is the name of an editor to use."
+	echo " hint: use show-editors to list installed editors"
+	return 1
+    fi
+
+    case $1 in
+	emacs)
+	    #Set up emacsclient (if it exists) and use emacs for the
+	    #edit command
+	    type emacsclient &> /dev/null \
+		&& _ED="emacsclient --alternate-editor /usr/bin/emacs +%d %s" \
+		|| _ED="emacs +%d %s"
+	    _EDCMD=emacs
+	    ;;
+	vi)
+	    #Use Vim if it's available
+	    type vim &> /dev/null && _VI=vim || _VI=vi
+	    _ED=$_VI
+	    _EDCMD=$_VI
+	    unset _VI
+	    ;;
+	mcedit)
+	    _ED=mcedit
+	    _EDCMD=mcedit
+	    ;;
+	*)
+	    #Just use whatever is passed in 
+	    #(gvim, gedit kwrite, nano, joe, mcedit...)
+	    _ED=$1
+	    _EDCMD=$1
+	    ;;
+    esac
+
+    export EDITOR=$_ED
+    alias edit=$_EDCMD
+    unset _ED _EDCMD
+}
+
+function show-editors {
+    # List which known editors are installed
+
+    # This just tests for editors I know about, to see if any of them
+    # are available on the shell PATH. Hopefully it will find one that
+    # you know or like...
+    #
+    # If you run this function with an argument (any value) it'll show
+    # the details for each editor found.
+
+    for _EDITOR in \
+	ed edit /usr/bin/edit edlin e ee \
+	emacs emacs22 emacs23 emacsclient gnumacs gosmacs xemacs \
+	aquamacs climacs freemacs jove memacs mg mince zile \
+	vi vim gvim evim rvim ex elvis ne nvi vile \
+	jed joe nano pico mcedit j kate kwrite \
+	notepad textedit textpad write gedit jedit kedit nedit xedit \
+	boxer brief crisp uedit32 xmlpad xmlspy ; do
+	if [[ -z $1 ]]; then
+	    type $_EDITOR &> /dev/null && echo $_EDITOR
+	else
+	    type $_EDITOR 2> /dev/null
+	fi
+    done
+    unset _EDITOR
+}
+
+function lscolours {
+    # Reloads dircolors. This is fairly slow so I avoid reloading in
+    # .bashrc if LS_COLORS has already been set. Run this function to
+    # force a refresh (i.e. if playing with new colours)
+
+    if [[ -z $1 ]] ; then
+	if [[ -s $HOME/.dircolors ]] ; then
+	    DIRCOLORS="$HOME"/.dircolors
+	else
+	    echo "Usage: $FUNCNAME [<dircolors_file>]"
+	    echo " will use ~/.dircolors if no file specified"
+	fi
+    else
+	DIRCOLORS="$1"
+    fi
+
+    eval $(dircolors --sh "$DIRCOLORS")
+    export LS_COLORS
+}
+
+function args {
+    # Utility to help understand shell word splitting
+
+    echo -n "$# args: "
+    for i; do
+	echo -n "'$i' "
+    done
+    echo
+}
+
+function fixvorbis {
+    # Strip out COVERART tags from ogg vorbis files (these tags break
+    # certain players...).  Requires vorbiscomment(1) from Ogg Vorbis
+    # tools.
+    #
+    #   HISTORY:
+    #
+    #   MJL20080826 - Created.
+    #   MJL20080905 - Moved to .functions common scripts
+    #               - fixed word splitting and weird file names
+    #               - added pause/continue and some error checks
+    #   MJL20080909 - Added optional parameter to specify which vorbis
+    #                 files, but you must include your own glob if
+    #                 specifying. Still looks for patch.txt in CURRENT
+    #                 directory....
+    #
+
+    if [[ -n $1 ]] ; then
+	pattern="$@"
+    else
+	pattern="./*.ogg"
+    fi
+
+    if type vorbiscomment 2&> /dev/null; then
+	true
+    else
+	echo "This function requires vorbiscomment from Ogg Vorbis tools"
+	echo "aborting"
+	return 1
+    fi
+
+    echo "Ogg files:"
+    if find $pattern ; then
+	echo "Will extract COVERART from these files."
+	read -p "Continue? (y/n) [y] " _CONTINUE
+	test n = "$_CONTINUE" &&  return 0
+    else
+	echo "No ogg files found, exiting."
+	return 1
+    fi
+
+    # extract the comments, less the COVERART tags
+    # (keep the art in separate files)
+
+    for n in $pattern; do
+	echo "Extracting comments and COVERART from $n"
+	vorbiscomment -l "$n" | grep COVERART > "$n"-art.txt
+	vorbiscomment -l "$n" | grep -v COVERART > "$n"-comment.txt
+    done
+
+     # if there's a comments patch (stored in patch.txt in the current
+     # dir) then apply the patch to the comments.
+    if [[ -f patch.txt ]]; then
+	for n in $pattern-comment.txt; do
+	    patch "$n" patch.txt
+	done
+    fi
+
+    # edit the comments with new comment files, minus art, possibly patched.
+    for n in $pattern; do
+	echo "Replacing comments in $n"
+	vorbiscomment -c "$n"-comment.txt -w "$n"
+    done
+
+    #clean up
+    rm $pattern-comment.txt
+
+    # clean-up of art is manual. There might be different cover-art
+    # from each file, but if not (diff a*-art.txt b*.txt etc produces
+    # no output) then just remove all but first and rename it...
+}
+
+function findcmd {
+    # $Id: findcmd,v 1.1 2006/10/29 16:41:18 jpeek Exp $
+
+    # MJL20080905 - Made a function. NOTE: don't hack this unless to
+    # add functionality (e.g. don't add bash-isms such as [[]], it's
+    # more portable without)
+
+    # findcmd - find all files in PATH matching wildcard-type pattern
+    # Usage: findcmd
+
+    # This script is in the public domain.  If you improve it, please
+    # consider sending a copy to the author, Jerry Peek <jpeek@jpeek.com>,
+    # so he can share your fixes with others.
+
+    # CONFIGURE: Don't match these Windows files unless name entered explicitly:
+    GLOBIGNORE='*.dll:*.wsc'
+
+    myname=$FUNCNAME  # was ${0##*/} name of this script (without leading path)
+
+    # Be sure shell won't remove or complain about unmatched patterns:
+    shopt -u failglob nullglob
+    # Resolve any symbolic links in directory pathnames for $PWD, etc.:
+    set -o physical
+
+    # Patterns must be entered after script starts.  This avoids "No match"
+    # errors, errors caused by parent shell expanding patterns early, etc:
+    if [ $# -ne 0 ]
+    then
+	echo "Usage: $myname" 1>&2
+	return 1
+    fi
+
+    # Copy valid directories from PATH list to pathdirs array.
+    declare -a pathdirs
+    OLDIFS="$IFS"
+    IFS=:
+    for dir in $PATH
+    do
+        # Convert "current directory" to its absolute pathname:
+	case "$dir" in
+	    .|"") dir="$PWD" ;;
+	esac
+
+	if [ ! -d "$dir" ]
+	then
+	    echo "$myname: warning: skipping invalid directory '$dir' in PATH"
+	    continue
+	fi
+
+       # If directory is already in pathdirs, skip it and resume outer loop:
+	for member in "${pathdirs[@]}"
+	do [ "$dir" == "$member" ] && continue 2
+	done
+       # Else, assign dir to next element of pathdirs (this trick obtains
+       # the next element thanks to the zero-based array indexes in bash):
+	pathdirs[${#pathdirs[*]}]="$dir"
+    done
+    IFS="$OLDIFS"
+
+    # End loop if "read" returns non-zero (for end-of-input) or $pat is empty:
+    while
+    echo -e "\n>>> $myname: Enter command name pattern (example: *cmd*)."
+    echo -en "Empty line exits:\n> "
+    read pat
+    do
+	test -z "$pat" && break
+
+	for dir in "${pathdirs[@]}"
+	do
+         # Skip $dir if can't access (couldn't do this test when pathdirs
+         # was set because it might change the meaning of . in PATH):
+	    cd "$dir" || continue
+
+         # If pattern has * ? [], expand with "set", else use test -x.
+	    case "$pat" in
+
+		*[][*?]*)
+           # Expand pattern as it would be on a command line:
+		    set $pat
+           # If pattern didn't expand, it will match itself; we skip it:
+		    if [ "$1" != "$pat" ]
+		    then
+             # Loop through positional parameters set by "set $pat" above
+             # and show full pathname of only the executable files:
+			for match
+			do test -x "$match" && echo "$dir/$match"
+			done
+		    fi
+		    ;;
+
+		*)
+           # No wildcards in pattern.  Test for exact match:
+		    [ -x "$pat" -a ! -d "$pat" ] && echo "$dir/$pat"
+		    ;;
+	    esac
+	done
+    done
+}
+
+function monster-prompt {
+#monster prompt!
+# (it's a bit slow in cygwin.  does the following:)
+
+#   .:[Managing 0/6 jobs.] [CPU Load: 0.00 Uptime: 0h22m]:.
+#   .:[6 files using 2.2G] [tzbblg@W2TZBBLG02 ~/Documents/CD-stage/MDK101]:.
+#   .:[18:38:09]:. $
+
+    export PS1='\[\033[0m\]\[\033[0;31m\].:\[\033[0m\]\[\033[1;30m\][\[\033[0m\]\[\033[0;28m\]Managing \033[1;31m\]\j\[\033[0m\]\[\033[1;30m\]/\[\033[0m\]\[\033[1;31m\]$(ps ax | wc -l | tr -d '\'' '\'')\[\033[0m\]\[\033[1;30m\] \[\033[0m\]\[\033[0;28m\]jobs.\[\033[0m\]\[\033[1;30m\]] [\[\033[0m\]\[\033[0;28m\]CPU Load: \[\033[0m\]\[\033[1;31m\]$(temp=$(cat /proc/loadavg) && echo ${temp%% *}) \[\033[0m\]\[\033[0;28m\]Uptime: \[\033[0m\]\[\033[1;31m\]$(temp=$(cat /proc/uptime) && upSec=${temp%%.*} ; let secs=$((${upSec}%60)) ; let mins=$((${upSec}/60%60)) ; let hours=$((${upSec}/3600%24)) ; let days=$((${upSec}/86400)) ; if [ ${days} -ne 0 ]; then echo -n ${days}d; fi ; echo -n ${hours}h${mins}m)\[\033[0m\]\[\033[1;30m\]]\[\033[0m\]\[\033[0;31m\]:.\n\[\033[0m\]\[\033[0;31m\].:\[\033[0m\]\[\033[1;30m\][\[\033[0m\]\[\033[1;31m\]$(ls -l | grep "^-" | wc -l | tr -d " ") \[\033[0m\]\[\033[0;28m\]files using \[\033[0m\]\[\033[1;31m\]$(ls --si -s | head -1 | awk '\''{print $2}'\'')\[\033[0m\]\[\033[1;30m\]] [\[\033[0m\]\[\033[1;31m\]\u\[\033[0m\]\[\033[0;31m\]@\[\033[0m\]\[\033[1;31m\]\h \[\033[0m\]\[\033[1;34m\]\w\[\033[0m\]\[\033[1;30m\]]\[\033[0m\]\[\033[0;31m\]:.\n\[\033[0m\]\[\033[0;31m\].:\[\033[0m\]\[\033[1;30m\][\[\033[0m\]\[\033[1;31m\]\t\[\033[0m\]\[\033[1;30m\]]\[\033[0m\]\[\033[0;31m\]:. \[\033[0m\]\[\033[1;37m\]\$ \[\033[0m\]'
+}
+
+function default-prompt {
+    # set a sensible default prompt depending on the terminal type
+
+    case $TERM in
+	dumb)
+            export PS1='\h$> '
+            ;;
+	cygwin)
+            PS1='\[\e]0;\w\a\]'
+	    export PS1=${PS1}'\n\[\e[32m\]\u@\h \[\e[33m\]\w\[\e[0m\]\n\h\$> '
+            ;;
+	linux)
+	    export PS1='\D{%Y%m%d}-\A\h[\W]\$> '
+            ;;
+	xterm | konsole)
+            PS1='\[\e]0;\w [\u@\h] \D{%Y%m%d}-\A\a\]'
+	    export PS1=${PS1}'\[\e[1;36m\][\W]\[\e[1;34m\]\h\[\e[0m\]\$> '
+            ;;
+	eterm-color)
+	    export PS1='\[\e[1;37m\][\W]\[\e[1;33m\]\h\[\e[0m\]\$> '
+            ;;
+	*)
+	# Don't know what it is. Be conservative
+            export PS1='\w\n\h\$> '
+	    ;;
+    esac
+}
+
+function snooze {
+    # wait and sleep forever
+
+    while true; do
+        date +"%Y-%m-%d %H:%M.%S: Snore..."
+        sleep 5000
+    done
+}
+        

@@ -1,0 +1,87 @@
+#!/bin/bash
+###############################################################################
+#
+#  File:       .alias
+#  Language:   Bash script
+#  Time-stamp: <2008-09-16 09:58:04 tzbblg>
+#  Platform:   Unix workstation
+#  OS:         Unix / Linux / Cygwin / Mac OS X / Solaris
+#  Authors:    Michael Lockhart [MJL]
+#
+#  Rights:     Use this however you like, just don't sue me
+#
+#  PURPOSE:    Michael's command aliases
+#
+#    Source this file from your shell's rc script, e.g.:
+#       test -s ~/.alias && . ~/.alias || true
+#
+#  HISTORY
+#
+# MJL20070430 - Created (from .bashrc)
+# MJL20070509 - Added 'help' and 'mna' aliases to man
+# MJL20070912 - Remove the help alias, as it masks bash' built-in help
+# MJL20080626 - Changed the ..[.*] aliases to use pushd instead of cd
+# MJL20080903 - xmodmap aliases for loading Dvorak / US QWERTY key maps
+# MJL20080916 - Fix less alias bug (switch mis-spelled)
+#
+
+
+
+# For ls, print type symbols, human sizes, in colour
+alias ls='ls -Fh' # --color=auto --show-control-chars'  
+
+alias up='pushd ..'
+alias ..='pushd ..'
+alias ...='pushd ../..'
+alias ....='pushd ../../..'
+alias .....='pushd ../../../..'
+alias ......='pushd ../../../../..'
+alias h='history 10' # shortcut to see your last 10 commands
+
+alias sl="ls"     # fix common typo
+alias l="ls"      # shortcut                 
+alias ll="ls -l"  # long listing
+alias la="ls -A"  # Almost all (not . and ..)
+alias lla="ll -A" # long, almost all
+alias lal="lla"   # synonym for lla
+alias las="lla"   # common typo on Dvorak keyboards
+alias less='less -Rr' # make "less" try to interpret ANSI chars
+# alias rm='rm -i'    # interractive (prompt before removing, could be annoying)
+alias link='ln -sv'           # make a symbolic link, print the full source name
+alias whence='type -a'        # what kind of commmand is it:  e.g. whence ls
+alias DOY='date +"%Y-%j"'     # Day Of Year
+alias iDate='date +"%Y%m%d"'  # ISO date (yyyymmdd)
+alias iTime='date +"%H%M%S"'  # Time in hhmmss
+
+#alias term='rxvt -rv -e bash' # better than xterm
+
+alias pd='pushd'   # shortcut to change dir and push it on the directory stack
+alias pop='popd'   # slightly shorter for the command to pop last dir from stack
+alias stack='dirs' # list the directory stack
+alias back='popd'  # synonym for popd -- from Web "back button" analogy
+alias home='pushd ~' # similar analogy to back -- take me home
+#alias cd='pushd'  # I'm still thinking about this one... 
+                   # it's behaviour is different with no args. 
+                   # A function may be better...
+
+alias mna=man
+
+##DOS Synonyms
+alias md='mkdir'
+alias copy='cp'
+alias ren='mv'
+alias move='mv'
+alias del='rm -i'
+alias dir='ls -vh'
+
+##Dvorak key mappings (strike 1st four keys of home row)
+#Using xmodmap (These only work on OpenSolaris X11)
+alias aoeu="xmodmap /usr/share/xmodmap/xmodmap.us"
+alias asdf="xmodmap /usr/share/xmodmap/xmodmap.dvorak"
+#Dvorak key mappings using setxkbmap (most X11s)
+alias xaoeu="setxkbmap us"
+alias xasdf="setxkbmap dvorak"
+#Dvorak key mappings using loadkeys (linux console)
+alias laoeu="loadkeys us"
+alias lasdf="loadkeys dvorak"
+

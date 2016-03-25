@@ -10,5 +10,6 @@ TODO
 
 * Actually merge the two old crufty things into one old crufty thing
 * Platform detection rather than terminal detection
+* Or perhaps use git branches for different systems?
 * Perhaps reorganise it with inspiration from Spacemacs?
-* Script to bootstrap this into $HOME with symlincs
+* Script to bootstrap this into $HOME with symlinks

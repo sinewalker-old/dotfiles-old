@@ -5,7 +5,7 @@ Just another dotfiles repo.  Public because it's not private.
 
 I don't expect there is much here for people to see.
 
-GO TO MY NEW [DOTFILES REPO](dotfiles):  it's much less crufty.  This is just for reference until I have finished reviewing old cruft for inclusion into that. Then I'll probably delete the repo from GitHub.
+GO TO MY NEW [DOTFILES REPO](https://github.com/sinewalker/dotfiles):  it's much less crufty.  This is just for reference until I have finished reviewing old cruft for inclusion into that. Then I'll probably delete the repo from GitHub.
 
 
 TODO
